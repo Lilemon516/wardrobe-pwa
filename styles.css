@@ -173,6 +173,13 @@ body{background:#F3EEE6; color:var(--ink);
 .swap-thumb{width:40px; height:40px; border-radius:9px; flex:0 0 auto; background-size:cover; background-position:center; border:.5px solid var(--line);}
 .swap-name{font-size:13px; color:var(--ink);}
 
+/* 天气设置 + 推荐理由 */
+.wx-click{cursor:pointer;}
+.wx-click:active{background:rgba(138,166,142,.22);}
+.wx-reason{position:absolute; bottom:8px; left:12px; right:12px; font-size:10px; color:var(--sage-deep);
+  background:rgba(255,255,255,.6); padding:3px 8px; border-radius:7px; text-align:center; line-height:1.4;}
+.wx-tip{font-size:11px; color:var(--muted); background:rgba(201,163,106,.1); border-radius:10px; padding:9px 11px; line-height:1.6; margin:2px 0 10px;}
+
 /* ===== 手机 / 全屏(PWA)模式：去掉桌面展示外壳，铺满整屏 ===== */
 @media (max-width: 640px), (display-mode: standalone), (display-mode: fullscreen) {
   html, body { height: 100%; }

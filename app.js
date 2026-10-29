@@ -140,6 +140,101 @@ function guessCat(name) {
   return '上衣';
 }
 
+// --- 天气模块（和风天气 API）---
+const WX = {
+  get key() { return store.get('wcol_wx_key') || ''; },
+  get host() { return store.get('wcol_wx_host') || 'devapi.qweather.com'; },
+  get city() { return store.get('wcol_wx_city') || ''; },
+  save(k, host, city) {
+    store.set('wcol_wx_key', k || '');
+    store.set('wcol_wx_host', host || '');
+    store.set('wcol_wx_city', city || '');
+  },
+  cache: store.parse('wcol_wx_cache', null),
+  locate() {
+    return new Promise(res => {
+      if (!navigator.geolocation) return res(null);
+      navigator.geolocation.getCurrentPosition(
+        p => res(p.coords.longitude.toFixed(2) + ',' + p.coords.latitude.toFixed(2)),
+        () => res(null), { timeout: 6000, maximumAge: 600000 });
+    });
+  },
+  async fetchNow() {
+    const key = this.key;
+    if (!key) throw new Error('NO_KEY');
+    let loc = this.city || await this.locate();
+    if (!loc) loc = '北京';
+    const url = 'https://' + this.host + '/v7/weather/now?location=' + encodeURIComponent(loc) + '&key=' + encodeURIComponent(key);
+    const r = await fetch(url);
+    const j = await r.json();
+    if (j.code === '200' && j.now) {
+      return { temp: parseInt(j.now.temp, 10), text: j.now.text, feels: j.now.feelsLike, icon: j.now.icon, loc: loc, ts: Date.now() };
+    }
+    throw new Error('WX_' + (j.code || 'ERR'));
+  },
+  async get(force) {
+    if (!force && this.cache && this.cache.ts && (Date.now() - this.cache.ts < 10 * 60 * 1000)) return this.cache;
+    try {
+      const d = await this.fetchNow();
+      this.cache = d; store.set('wcol_wx_cache', JSON.stringify(d));
+      return d;
+    } catch (e) {
+      if (this.cache) return this.cache;
+      throw e;
+    }
+  }
+};
+
+// --- 天气 → 穿搭规则引擎 ---
+const DEFAULT_WX = { temp: 18, text: '多云', feels: '16', icon: '101', loc: '' };
+let currentWx = Object.assign({}, DEFAULT_WX, WX.cache || {});
+let currentScene = '工作';
+
+function wxRule(wx, scene) {
+  const t = wx.temp, cond = wx.text || '';
+  const r = { season: [], thick: [], prefer: [], avoid: [], scene: scene, tip: '' };
+  if (t <= 5) { r.season = ['冬', '秋/冬', '四季']; r.thick = ['厚', '中等']; r.tip = '严寒，注意保暖'; }
+  else if (t <= 12) { r.season = ['秋/冬', '冬', '四季']; r.thick = ['厚', '中等']; r.tip = '偏冷，穿厚外套'; }
+  else if (t <= 18) { r.season = ['秋/冬', '春/秋', '四季']; r.thick = ['中等', '薄']; r.tip = '微凉，可加薄外套'; }
+  else if (t <= 25) { r.season = ['春/秋', '夏', '四季']; r.thick = ['薄', '中等']; r.tip = '舒适，长袖为主'; }
+  else { r.season = ['夏', '四季']; r.thick = ['薄']; r.tip = '炎热，穿轻薄透气'; }
+  if (/雨|雷|阵|毛毛|冻雨/.test(cond)) { r.prefer.push('防水'); r.avoid.push('浅色'); r.tip += '，有雨带伞'; }
+  if (/雪|冰|霰/.test(cond)) { r.thick = ['厚']; r.prefer.push('防滑'); r.tip += '，下雪防滑'; }
+  if (/风/.test(cond)) { r.prefer.push('防风'); r.avoid.push('裙装', '飘逸'); r.tip += '，注意防风'; }
+  if (/晴/.test(cond)) { r.prefer.push('亮色'); }
+  return r;
+}
+function seasonOk(itSeason, ruleSeasons) {
+  if (!itSeason) return true;
+  return ruleSeasons.some(s => itSeason.indexOf(s) >= 0);
+}
+function thickOk(itThick, ruleThicks) {
+  if (!itThick || itThick === '-' || itThick === '—') return true;
+  return ruleThicks.some(t => itThick.indexOf(t) >= 0);
+}
+function sceneOk(itScene, ruleScene) {
+  if (!itScene) return true;
+  if (itScene.indexOf('百搭') >= 0) return true;
+  return ruleScene === '' || itScene.indexOf(ruleScene) >= 0;
+}
+// 三套差异化风格（正式 / 温柔 / 随性）
+const STYLES = [
+  { title: '通勤干练风', tags: ['通勤', '正式'] },
+  { title: '温柔休闲风', tags: ['温柔', '休闲'] },
+  { title: '随性日常风', tags: ['百搭', '运动'] }
+];
+function scoreItem(it, rule, style) {
+  let s = 0;
+  if (seasonOk(it.season, rule.season)) s += 3; else s -= 2;
+  if (thickOk(it.thick, rule.thick)) s += 3; else s -= 1;
+  if (sceneOk(it.scene, rule.scene)) s += 2;
+  if (style.tags.some(t => (it.tags || []).indexOf(t) >= 0)) s += 2;
+  const nm = (it.name || '') + ',' + (it.tags || []).join(',');
+  rule.prefer.forEach(p => { if (nm.indexOf(p) >= 0) s += 2; });
+  rule.avoid.forEach(a => { if (nm.indexOf(a) >= 0) s -= 2; });
+  return s;
+}
+
 // --- 全局数据 ---
 let ALL = [];
 let editingId = null;       // 编辑中的单品 id
@@ -413,15 +508,19 @@ function buildStudio(randomize) {
   studioByCat = {};
   acts.forEach(i => { (studioByCat[i.cat] = studioByCat[i.cat] || []).push(i); });
   const cats = NEED.filter(c => studioByCat[c] && studioByCat[c].length);
-  const titles = ['通勤温柔风', '干练职场风', '休闲周末风'];
+  const rule = wxRule(currentWx, currentScene);
   studioOutfits = [];
   for (let o = 0; o < 3; o++) {
-    const set = { title: titles[o] || ('搭配 ' + (o + 1)), items: [] };
+    const style = STYLES[o] || STYLES[2];
+    const set = { title: style.title, items: [], reason: rule.tip };
     cats.forEach(c => {
       const arr = studioByCat[c];
-      const base = randomize ? Math.floor(Math.random() * arr.length) : 0;
-      const pick = arr[(base + o) % arr.length];
-      if (pick) set.items.push({ ...pick, slot: c });
+      let best = null, bestS = -1e9;
+      arr.forEach(it => {
+        const s = scoreItem(it, rule, style) + (randomize ? Math.random() * 1.2 : 0);
+        if (s > bestS) { bestS = s; best = it; }
+      });
+      if (best) set.items.push({ ...best, slot: c });
     });
     studioOutfits.push(set);
   }
@@ -437,6 +536,11 @@ function renderStudio() {
     const slide = document.createElement('div'); slide.className = 'slide';
     const board = document.createElement('div'); board.className = 'board';
     const ot = document.createElement('div'); ot.className = 'ot'; ot.textContent = set.title; board.appendChild(ot);
+    if (set.reason) {
+      const rs = document.createElement('div'); rs.className = 'wx-reason';
+      rs.textContent = '☁ ' + currentWx.temp + '°' + (currentWx.text ? ' ' + currentWx.text : '') + ' · ' + set.reason;
+      board.appendChild(rs);
+    }
     set.items.forEach((it, ii) => {
       const note = document.createElement('div'); note.className = 'note clickable';
       note.innerHTML = `<span class="tape"></span>${it.name}<span class="swap-hint">换</span>`;
@@ -453,7 +557,7 @@ car.addEventListener('scroll', () => {
   const i = Math.round(car.scrollLeft / car.clientWidth);
   sdots.querySelectorAll('.dot').forEach((d, k) => d.classList.toggle('on', k === i));
 });
-document.getElementById('studioGen').addEventListener('click', () => { buildStudio(true); toast('已重新生成搭配'); });
+document.getElementById('studioGen').addEventListener('click', (e) => { e.stopPropagation(); buildStudio(true); toast('已重新生成搭配'); });
 document.getElementById('studioSave').addEventListener('click', () => toast('搭配已保存'));
 
 // --- 换装弹层 ---
@@ -501,5 +605,74 @@ document.querySelectorAll('#calGrid .day').forEach(d => {
   });
 });
 
+// --- 天气 UI：渲染 + 设置 + 活动切换 ---
+function wxEmoji(icon) {
+  const c = String(icon || '');
+  if (c === '100' || c === '150') return '☀️';
+  if (c === '104') return '☁️';
+  if (/^30|^31/.test(c)) return '🌧️';
+  if (/^40/.test(c)) return '❄️';
+  return '⛅';
+}
+function renderWeather() {
+  const configured = !!WX.key;
+  const rule = wxRule(currentWx, currentScene);
+  const ht = document.getElementById('wxTemp');
+  const hd = document.getElementById('wxDesc');
+  if (ht) ht.textContent = configured ? (currentWx.temp + '°') : '--°';
+  if (hd) hd.innerHTML = configured
+    ? (currentWx.text || '') + ' · 体感' + (currentWx.feels || '—') + '°<br>' + rule.tip
+    : '未配置天气<br>点此接入和风天气';
+  const st = document.getElementById('studioWx');
+  const sd = document.getElementById('studioWxD');
+  if (st) st.textContent = configured ? (wxEmoji(currentWx.icon) + ' ' + currentWx.temp + '° ' + (currentWx.text || '') + ' · ' + currentScene) : (currentScene + ' · 未配置天气');
+  if (sd) sd.textContent = configured ? rule.tip : '点此配置天气，即可按天气推荐';
+}
+function openWxSetting() {
+  document.getElementById('wxKey').value = WX.key;
+  document.getElementById('wxCity').value = WX.city;
+  document.getElementById('wxHost').value = (WX.host === 'devapi.qweather.com') ? '' : WX.host;
+  document.getElementById('wxMask').classList.add('show');
+}
+function closeWxSetting() { document.getElementById('wxMask').classList.remove('show'); }
+document.getElementById('wxClose').addEventListener('click', closeWxSetting);
+document.getElementById('wxMask').addEventListener('click', e => { if (e.target.id === 'wxMask') closeWxSetting(); });
+document.getElementById('wxSave').addEventListener('click', async () => {
+  const k = document.getElementById('wxKey').value.trim();
+  const city = document.getElementById('wxCity').value.trim();
+  const host = document.getElementById('wxHost').value.trim() || 'devapi.qweather.com';
+  WX.save(k, host, city);
+  closeWxSetting();
+  if (!k) { renderWeather(); toast('已清除天气配置'); return; }
+  toast('正在获取天气…');
+  await loadWeather(true);
+});
+// 首页活动切换
+document.querySelectorAll('#homeChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('#homeChips .chip').forEach(x => x.classList.remove('on'));
+    c.classList.add('on');
+    currentScene = c.textContent;
+    renderWeather(); buildStudio(false);
+  });
+});
+// 天气卡片点击 → 打开设置
+document.getElementById('homeWx').addEventListener('click', openWxSetting);
+document.getElementById('studioWxBox').addEventListener('click', openWxSetting);
+
+async function loadWeather(force) {
+  if (!WX.key) { renderWeather(); return; }
+  try {
+    const d = await WX.get(force);
+    currentWx = d;
+  } catch (e) {
+    toast(e && e.message === 'NO_KEY' ? '未配置 Key' : '天气获取失败');
+  }
+  renderWeather();
+  buildStudio(false);
+}
+
 // --- 启动 ---
 refreshAll();
+renderWeather();
+loadWeather(false);
