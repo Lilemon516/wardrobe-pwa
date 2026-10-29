@@ -141,9 +141,10 @@ function guessCat(name) {
 }
 
 // --- 天气模块（和风天气 API）---
+const WX_DEFAULTS = { key: '72ad38d67cf14b94b16b477b24153f6c', host: 'm35pwg24m5.re.qweatherapi.com' };
 const WX = {
-  get key() { return store.get('wcol_wx_key') || ''; },
-  get host() { return store.get('wcol_wx_host') || 'devapi.qweather.com'; },
+  get key() { return store.get('wcol_wx_key') || WX_DEFAULTS.key; },
+  get host() { return store.get('wcol_wx_host') || WX_DEFAULTS.host; },
   get city() { return store.get('wcol_wx_city') || ''; },
   save(k, host, city) {
     store.set('wcol_wx_key', k || '');
@@ -162,8 +163,9 @@ const WX = {
   async fetchNow() {
     const key = this.key;
     if (!key) throw new Error('NO_KEY');
-    let loc = this.city || await this.locate();
-    if (!loc) loc = '北京';
+    let loc = await this.locate();
+    if (!loc) loc = this.city;
+    if (!loc) loc = '116.41,39.92';
     const url = 'https://' + this.host + '/v7/weather/now?location=' + encodeURIComponent(loc) + '&key=' + encodeURIComponent(key);
     const r = await fetch(url);
     const j = await r.json();
@@ -631,7 +633,7 @@ function renderWeather() {
 function openWxSetting() {
   document.getElementById('wxKey').value = WX.key;
   document.getElementById('wxCity').value = WX.city;
-  document.getElementById('wxHost').value = (WX.host === 'devapi.qweather.com') ? '' : WX.host;
+  document.getElementById('wxHost').value = WX.host;
   document.getElementById('wxMask').classList.add('show');
 }
 function closeWxSetting() { document.getElementById('wxMask').classList.remove('show'); }
