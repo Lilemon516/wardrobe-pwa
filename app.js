@@ -45,46 +45,62 @@ async function loadItems() {
   if (USE_IDB) {
     try {
       const db = await openDB();
-      return await new Promise(res => {
-        const t = db.transaction('items', 'readonly').objectStore('items').getAll();
-        t.onsuccess = () => res(t.result || []);
-        t.onerror = () => res([]);
+      const arr = await new Promise((res, rej) => {
+        const t = db.transaction('items', 'readonly');
+        const rq = t.objectStore('items').getAll();
+        rq.onsuccess = () => res(rq.result || []);
+        rq.onerror = () => rej(rq.error);
+        t.onerror = () => rej(t.error);
       });
+      if (arr && arr.length) return arr;
     } catch (e) {}
   }
+  // IndexedDB 为空/失败 → 回退 localStorage
   return store.parse('wcol_items', []);
 }
 async function saveItem(it) {
+  let idbOk = false;
   if (USE_IDB) {
     try {
       const db = await openDB();
-      await new Promise(res => {
+      await new Promise((res, rej) => {
         const t = db.transaction('items', 'readwrite');
-        t.objectStore('items').put(it);
-        t.oncomplete = () => res();
+        const rq = t.objectStore('items').put(it);
+        rq.onsuccess = () => res();
+        rq.onerror = () => rej(rq.error);
+        t.onerror = () => rej(t.error);
+        t.onabort = () => rej(t.error || new Error('IndexedDB abort'));
       });
-      return;
-    } catch (e) {}
+      idbOk = true;
+    } catch (e) { idbOk = false; }
   }
-  const arr = store.parse('wcol_items', []);
-  const i = arr.findIndex(x => x.id === it.id);
-  if (i >= 0) arr[i] = it; else arr.push(it);
-  store.set('wcol_items', JSON.stringify(arr));
+  // 无论 IndexedDB 成败，都同步一份到 localStorage 兜底（超限则静默跳过，不阻塞）
+  try {
+    const arr = store.parse('wcol_items', []);
+    const i = arr.findIndex(x => x.id === it.id);
+    if (i >= 0) arr[i] = it; else arr.push(it);
+    store.set('wcol_items', JSON.stringify(arr));
+  } catch (e) {}
+  return idbOk;
 }
 async function deleteItem(id) {
   if (USE_IDB) {
     try {
       const db = await openDB();
-      await new Promise(res => {
+      await new Promise((res, rej) => {
         const t = db.transaction('items', 'readwrite');
-        t.objectStore('items').delete(id);
-        t.oncomplete = () => res();
+        const rq = t.objectStore('items').delete(id);
+        rq.onsuccess = () => res();
+        rq.onerror = () => rej(rq.error);
+        t.onerror = () => rej(t.error);
+        t.onabort = () => rej(t.error || new Error('IndexedDB abort'));
       });
-      return;
     } catch (e) {}
   }
-  const arr = store.parse('wcol_items', []).filter(x => x.id !== id);
-  store.set('wcol_items', JSON.stringify(arr));
+  try {
+    const arr = store.parse('wcol_items', []).filter(x => x.id !== id);
+    store.set('wcol_items', JSON.stringify(arr));
+  } catch (e) {}
 }
 
 // --- 演示种子数据（首次运行填充）---
@@ -434,18 +450,52 @@ async function retire(id) { const it = ALL.find(x => x.id === id); if (!it) retu
 async function restore(id) { const it = ALL.find(x => x.id === id); if (!it) return; it.status = 'active'; await saveItem(it); toast('已恢复'); refreshAll(); }
 async function destroy(id) { await deleteItem(id); toast('已彻底删除'); refreshAll(); }
 
+// --- 图片压缩（降低 IndexedDB/localStorage 存储压力，避免 quota 超限导致数据丢失）---
+function compressImage(dataUrl, maxW, q) {
+  maxW = maxW || 900; q = q || 0.82;
+  return new Promise(res => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth, h = img.naturalHeight;
+          if (!w || !h) return res(dataUrl);
+          const scale = Math.min(1, maxW / Math.max(w, h));
+          if (scale >= 1 && dataUrl.length < 400 * 1024) return res(dataUrl); // 原图已够小，不处理
+          const cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          const cv = document.createElement('canvas');
+          cv.width = cw; cv.height = ch;
+          const ctx = cv.getContext('2d');
+          ctx.drawImage(img, 0, 0, cw, ch);
+          let out;
+          try { out = cv.toDataURL('image/jpeg', q); } catch (e) { out = dataUrl; }
+          res(out && out.length && out.length < dataUrl.length ? out : dataUrl);
+        } catch (e) { res(dataUrl); }
+      };
+      img.onerror = () => res(dataUrl);
+      img.src = dataUrl;
+    } catch (e) { res(dataUrl); }
+  });
+}
+
 // --- 添加 / 编辑单品 ---
 const capInput = document.getElementById('capInput');
+const capCamera = document.getElementById('capCamera');
 const capture = document.getElementById('capture');
 let captureImg = null;
-capture.addEventListener('click', () => capInput.click());
-capInput.addEventListener('change', () => {
-  const f = capInput.files[0]; if (!f) return;
-  const rd = new FileReader();
-  rd.onload = () => { captureImg = rd.result; capture.querySelectorAll('span').forEach(s => s.style.display = 'none');
-    let im = capture.querySelector('img'); if (!im) { im = document.createElement('img'); capture.appendChild(im); } im.src = captureImg; };
-  rd.readAsDataURL(f);
-});
+async function handleCapFile(f) {
+  if (!f) return;
+  const raw = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.onerror = () => r(null); rd.readAsDataURL(f); });
+  if (!raw) return;
+  captureImg = await compressImage(raw);
+  capture.querySelectorAll('span').forEach(s => s.style.display = 'none');
+  let im = capture.querySelector('img'); if (!im) { im = document.createElement('img'); capture.appendChild(im); } im.src = captureImg;
+}
+capture.addEventListener('click', () => capInput.click());          // 大区域点击 → 相册（系统可选拍照/相册/文件）
+document.getElementById('capGallery').addEventListener('click', () => capInput.click());
+document.getElementById('capShoot').addEventListener('click', () => capCamera.click());
+capInput.addEventListener('change', () => { handleCapFile(capInput.files[0]); capInput.value = ''; });
+capCamera.addEventListener('change', () => { handleCapFile(capCamera.files[0]); capCamera.value = ''; });
 const catChips = document.getElementById('catChips');
 catChips.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
   catChips.querySelectorAll('.chip').forEach(x => x.classList.remove('on')); c.classList.add('on');
@@ -503,7 +553,9 @@ batchDrop.addEventListener('click', () => batchInput.click());
 batchInput.addEventListener('change', async () => {
   const files = Array.from(batchInput.files || []);
   for (const f of files) {
-    const dataUrl = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.readAsDataURL(f); });
+    const raw = await new Promise(r => { const rd = new FileReader(); rd.onload = () => r(rd.result); rd.onerror = () => r(null); rd.readAsDataURL(f); });
+    if (!raw) continue;
+    const dataUrl = await compressImage(raw);
     const base = f.name.replace(/\.[^.]+$/, '');
     const cat = guessCat(base);
     const color = await dominantColor(dataUrl);

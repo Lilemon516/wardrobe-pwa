@@ -95,9 +95,14 @@
           <div class="h-sub" id="addSub">拍照/上传 · 自动识别标签</div>
           <div class="scroll">
             <div class="capture" id="capture">
-              <input type="file" id="capInput" accept="image/*" capture="environment" hidden>
-              <span>📷 拍照或上传图片</span>
-              <span style="font-size:10px; opacity:.7;">自动去背 · 识别分类与颜色</span>
+              <input type="file" id="capInput" accept="image/*" hidden>
+              <input type="file" id="capCamera" accept="image/*" capture="environment" hidden>
+              <span>📷 点击从相册选择 / 拍照</span>
+              <span style="font-size:10px; opacity:.7;">自动压缩 · 识别分类与颜色</span>
+            </div>
+            <div class="cap-actions">
+              <div class="btn ghost" id="capGallery">🖼 从相册选</div>
+              <div class="btn ghost" id="capShoot">📷 拍照</div>
             </div>
             <div class="field"><span class="k">名称</span><input class="v" id="f-name" placeholder="如 米色针织毛衣"></div>
             <div class="field"><span class="k">分类</span>
