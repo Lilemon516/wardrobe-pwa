@@ -92,6 +92,7 @@ const SEED = [
   { name: '米色针织毛衣', cat: '上衣', season: '秋/冬', scene: '工作·休闲', thick: '中等', color: '#D8C9A8', tags: ['通勤', '百搭'], price: 399, img: null, status: 'active' },
   { name: '白色衬衫', cat: '上衣', season: '春/秋', scene: '工作', thick: '薄', color: '#F4F1EA', tags: ['正式'], price: 259, img: null, status: 'active' },
   { name: '直筒牛仔裤', cat: '下装', season: '四季', scene: '百搭', thick: '中等', color: '#6B7B8C', tags: ['百搭'], price: 329, img: null, status: 'active' },
+  { name: '黑色A字半裙', cat: '裙装', season: '春/夏', scene: '约会', thick: '薄', color: '#2E2B28', tags: ['温柔', '百搭'], price: 279, img: null, status: 'active' },
   { name: '西装外套', cat: '外套', season: '春/秋', scene: '正式', thick: '中等', color: '#3A3631', tags: ['正式'], price: 899, img: null, status: 'active' },
   { name: '棕色乐福鞋', cat: '鞋', season: '四季', scene: '通勤', thick: '-', color: '#8A5A3B', tags: ['通勤'], price: 599, img: null, status: 'active' },
   { name: '大象灰托特包', cat: '包', season: '四季', scene: '日常', thick: '-', color: '#9A9A92', tags: ['大容量'], price: 459, img: null, status: 'active' }
@@ -104,7 +105,7 @@ async function seedIfEmpty() {
 }
 
 // --- 工具 ---
-const CATS = ['上衣', '下装', '外套', '鞋', '包', '配饰'];
+const CATS = ['上衣', '下装', '裙装', '外套', '鞋', '包', '配饰'];
 const TAGS = ['通勤', '温柔', '百搭', '正式', '大容量', '运动', '休闲', '复古'];
 function activeItems() { return ALL.filter(i => i.status !== 'retired'); }
 function retiredItems() { return ALL.filter(i => i.status === 'retired'); }
@@ -132,7 +133,8 @@ function dominantColor(dataUrl) {
 function guessCat(name) {
   const n = (name || '').toLowerCase();
   if (/(shirt|衬衫|上衣|tee|t恤|卫衣|毛衣|针织|sweater|hoodie|polo)/.test(n)) return '上衣';
-  if (/(pant|裤|jean|牛仔|skirt|裙|short|短裤)/.test(n)) return '下装';
+  if (/(skirt|裙|连衣裙|半身裙|长裙|短裙)/.test(n)) return '裙装';
+  if (/(pant|裤|jean|牛仔|short|短裤)/.test(n)) return '下装';
   if (/(coat|外套|jacket|西装|风衣|大衣|blazer)/.test(n)) return '外套';
   if (/(shoe|鞋|boot|靴|sneaker|乐福|loafer|sandal)/.test(n)) return '鞋';
   if (/(bag|包|tote|背包|purse|handbag|双肩)/.test(n)) return '包';
@@ -231,7 +233,7 @@ function scoreItem(it, rule, style) {
   if (thickOk(it.thick, rule.thick)) s += 3; else s -= 1;
   if (sceneOk(it.scene, rule.scene)) s += 2;
   if (style.tags.some(t => (it.tags || []).indexOf(t) >= 0)) s += 2;
-  const nm = (it.name || '') + ',' + (it.tags || []).join(',');
+  const nm = (it.name || '') + ',' + (it.cat || '') + ',' + (it.tags || []).join(',');
   rule.prefer.forEach(p => { if (nm.indexOf(p) >= 0) s += 2; });
   rule.avoid.forEach(a => { if (nm.indexOf(a) >= 0) s -= 2; });
   return s;
@@ -504,13 +506,16 @@ document.getElementById('batchSave').addEventListener('click', async () => {
 // --- 工坊：数据驱动 + 换装 ---
 const car = document.getElementById('studioCar');
 const sdots = document.getElementById('studioDots');
-const NEED = ['上衣', '下装', '鞋', '包'];
+const NEED = ['上衣', '鞋', '包'];
+const BOTTOM = ['下装', '裙装'];
 function buildStudio(randomize) {
   const acts = activeItems();
   studioByCat = {};
   acts.forEach(i => { (studioByCat[i.cat] = studioByCat[i.cat] || []).push(i); });
   const cats = NEED.filter(c => studioByCat[c] && studioByCat[c].length);
+  const bottomPool = BOTTOM.reduce((acc, c) => acc.concat(studioByCat[c] || []), []);
   const rule = wxRule(currentWx, currentScene);
+  const score = (it, style) => scoreItem(it, rule, style) + (randomize ? Math.random() * 1.2 : 0);
   studioOutfits = [];
   for (let o = 0; o < 3; o++) {
     const style = STYLES[o] || STYLES[2];
@@ -519,11 +524,20 @@ function buildStudio(randomize) {
       const arr = studioByCat[c];
       let best = null, bestS = -1e9;
       arr.forEach(it => {
-        const s = scoreItem(it, rule, style) + (randomize ? Math.random() * 1.2 : 0);
+        const s = score(it, style);
         if (s > bestS) { bestS = s; best = it; }
       });
       if (best) set.items.push({ ...best, slot: c });
     });
+    // 下半身：下装 / 裙装 二选一
+    if (bottomPool.length) {
+      let best = null, bestS = -1e9;
+      bottomPool.forEach(it => {
+        const s = score(it, style);
+        if (s > bestS) { bestS = s; best = it; }
+      });
+      if (best) set.items.push({ ...best, slot: best.cat });
+    }
     studioOutfits.push(set);
   }
   renderStudio();
@@ -531,7 +545,7 @@ function buildStudio(randomize) {
 function renderStudio() {
   car.innerHTML = ''; sdots.innerHTML = '';
   if (studioOutfits.length === 0) {
-    car.innerHTML = '<div class="slide"><div class="board"><div class="ot">暂无单品</div><div class="note">请先到衣橱添加上衣/下装/鞋/包</div></div></div>';
+    car.innerHTML = '<div class="slide"><div class="board"><div class="ot">暂无单品</div><div class="note">请先到衣橱添加上衣/下装或裙装/鞋/包</div></div></div>';
     return;
   }
   studioOutfits.forEach((set, si) => {
