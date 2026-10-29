@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="电子衣橱">
+<meta name="theme-color" content="#FBF7F0">
+<title>电子衣橱</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-head">
+    <h1>电子衣橱 · PWA</h1>
+    <p>干净壳 + 拼贴内容卡。可安装到 iPhone 主屏幕，离线可用，数据存在本机。</p>
+    <div class="note">
+      <b>iPhone 安装：</b>用 Safari 打开此页 → 点底部「分享」→「添加到主屏幕」。需通过 https 或 localhost 访问才能离线/安装（局域网 http 仅能预览）。<br>
+      <b>数据本地存储：</b>单品（含照片/价格/状态）存 IndexedDB；换一套、日历选择存 localStorage。<br>
+      <b>已支持：</b>分类查看 · 编辑 · 批量录入(自动识别) · 淘汰进回收仓 · 工坊换装。
+    </div>
+  </div>
+
+  <div class="phone-stage">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="statusbar"><span>9:25</span><span class="dots"><i></i><i></i><i></i></span></div>
+
+        <!-- ① 今日穿搭 -->
+        <div class="panel show" id="p-home">
+          <div class="h-title">今日穿搭</div>
+          <div class="h-sub">10月29日 周四 · 自动推荐</div>
+          <div class="scroll">
+            <div class="weather">
+              <svg width="34" height="34" viewBox="0 0 34 34"><circle cx="13" cy="13" r="6" fill="#C9A36A"/><g stroke="#C9A36A" stroke-width="1.6"><line x1="13" y1="2" x2="13" y2="5"/><line x1="13" y1="21" x2="13" y2="24"/><line x1="2" y1="13" x2="5" y2="13"/><line x1="21" y1="13" x2="24" y2="13"/></g><path d="M18 22a6 6 0 0 1 0-12 7 7 0 0 1 7 7 4 4 0 0 1-4 5H18z" fill="#fff" stroke="#9A938A" stroke-width="1.2"/></svg>
+              <div><div class="t">18°</div><div class="d">多云转晴 · 体感16°<br>微风 适宜外套</div></div>
+            </div>
+            <div class="chips">
+              <span class="chip on">工作</span><span class="chip">休闲</span><span class="chip">约会</span><span class="chip">旅行</span>
+            </div>
+            <div class="collage" id="homeCollage">
+              <div class="cap">今日一套 · OOTD</div>
+              <svg class="doodle" style="top:8px; right:14px;" width="18" height="18" viewBox="0 0 18 18"><path d="M9 1l2 5 5 .5-4 3.5 1.5 5L9 12l-4.5 3 1.5-5-4-3.5 5-.5z" fill="#FBF7F0"/></svg>
+              <div class="strip"><svg class="arrow" viewBox="0 0 22 22"><path d="M3 11h12m0 0l-5-5m5 5l-5 5" stroke="#3A3631" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><div class="nm">米色针织毛衣</div><div class="meta">上衣 · 秋/冬 · 工作</div><div class="dots-row"><i style="background:#D8C9A8"></i><i style="background:rgba(216,201,168,.5)"></i><i style="background:rgba(216,201,168,.35)"></i><i style="background:rgba(216,201,168,.2)"></i></div></div>
+              <div class="strip"><svg class="arrow" viewBox="0 0 22 22"><path d="M3 11h12m0 0l-5-5m5 5l-5 5" stroke="#3A3631" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><div class="nm">直筒牛仔裤</div><div class="meta">下装 · 百搭</div><div class="dots-row"><i style="background:#6B7B8C"></i><i style="background:rgba(107,123,140,.5)"></i><i style="background:rgba(107,123,140,.35)"></i><i style="background:rgba(107,123,140,.2)"></i></div></div>
+              <div class="strip"><svg class="arrow" viewBox="0 0 22 22"><path d="M3 11h12m0 0l-5-5m5 5l-5 5" stroke="#3A3631" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><div class="nm">棕色乐福鞋</div><div class="meta">鞋 · 通勤</div><div class="dots-row"><i style="background:#8A5A3B"></i><i style="background:rgba(138,90,59,.5)"></i><i style="background:rgba(138,90,59,.35)"></i><i style="background:rgba(138,90,59,.2)"></i></div></div>
+              <div class="strip"><svg class="arrow" viewBox="0 0 22 22"><path d="M3 11h12m0 0l-5-5m5 5l-5 5" stroke="#3A3631" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><div class="nm">大象灰托特包</div><div class="meta">包 · 大容量</div><div class="dots-row"><i style="background:#9A9A92"></i><i style="background:rgba(154,154,146,.5)"></i><i style="background:rgba(154,154,146,.35)"></i><i style="background:rgba(154,154,146,.2)"></i></div></div>
+              <svg class="doodle" style="bottom:10px; left:12px;" width="16" height="16" viewBox="0 0 16 16"><path d="M8 13S2 9 2 5.5 4.5 2 8 2s6 1.5 6 3.5S8 13 8 13z" fill="#FBF7F0"/></svg>
+            </div>
+            <div class="btnrow">
+              <div class="btn ghost" id="homeChange">换一套</div>
+              <div class="btn primary" id="homeSave">保存</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ② 衣橱 -->
+        <div class="panel" id="p-wardrobe">
+          <div class="h-title">我的衣橱</div>
+          <div class="h-sub">本地存储 · 分类管理</div>
+          <div class="scroll">
+            <div class="search">⌕ 搜索单品 / 品牌 / 颜色</div>
+            <div class="sec-t">分类（点击查看单品）</div>
+            <div class="cat-grid">
+              <div class="cat" data-cat="上衣"><div class="ic">👚</div><div class="nm">上衣</div><div class="ct" data-ct>0 件</div></div>
+              <div class="cat" data-cat="下装"><div class="ic">👖</div><div class="nm">下装</div><div class="ct" data-ct>0 件</div></div>
+              <div class="cat" data-cat="外套"><div class="ic">🧥</div><div class="nm">外套</div><div class="ct" data-ct>0 件</div></div>
+              <div class="cat" data-cat="鞋"><div class="ic">👟</div><div class="nm">鞋</div><div class="ct" data-ct>0 件</div></div>
+              <div class="cat" data-cat="包"><div class="ic">👜</div><div class="nm">包</div><div class="ct" data-ct>0 件</div></div>
+              <div class="cat" data-cat="配饰"><div class="ic">🧣</div><div class="nm">配饰</div><div class="ct" data-ct>0 件</div></div>
+            </div>
+            <div class="sec-t">最近添加</div>
+            <div class="recents" id="recents"></div>
+            <div class="sec-t" style="margin-top:18px;">按场景</div>
+            <div class="chips">
+              <span class="chip on">工作</span><span class="chip">休闲</span><span class="chip">约会</span><span class="chip">旅行</span><span class="chip">运动</span>
+            </div>
+            <div class="btn primary block" id="wardrobeAdd">＋ 添加单品</div>
+            <div class="btn ghost block" id="recycleBtn">♻️ 回收仓（0）</div>
+          </div>
+        </div>
+
+        <!-- 分类详情 -->
+        <div class="panel" id="p-catdetail">
+          <div class="h-title" id="catTitle">分类</div>
+          <div class="h-sub" id="catSub">0 件单品</div>
+          <div class="scroll">
+            <div class="btn ghost block" id="catBack">← 返回衣橱</div>
+            <div class="item-list" id="catList"></div>
+            <div class="empty" id="catEmpty" style="display:none;">该分类暂无单品，去添加吧</div>
+          </div>
+        </div>
+
+        <!-- ③ 添加单品（含编辑模式） -->
+        <div class="panel" id="p-add">
+          <div class="h-title" id="addTitle">添加单品</div>
+          <div class="h-sub" id="addSub">拍照/上传 · 自动识别标签</div>
+          <div class="scroll">
+            <div class="capture" id="capture">
+              <input type="file" id="capInput" accept="image/*" capture="environment" hidden>
+              <span>📷 拍照或上传图片</span>
+              <span style="font-size:10px; opacity:.7;">自动去背 · 识别分类与颜色</span>
+            </div>
+            <div class="field"><span class="k">名称</span><input class="v" id="f-name" placeholder="如 米色针织毛衣"></div>
+            <div class="field"><span class="k">分类</span>
+              <div class="chips" id="catChips" style="margin:0;">
+                <span class="chip" data-c="上衣">上衣</span><span class="chip" data-c="下装">下装</span>
+                <span class="chip" data-c="外套">外套</span><span class="chip" data-c="鞋">鞋</span>
+                <span class="chip" data-c="包">包</span><span class="chip" data-c="配饰">配饰</span>
+              </div>
+            </div>
+            <div class="field"><span class="k">季节</span><input class="v" id="f-season" placeholder="如 秋/冬"></div>
+            <div class="field"><span class="k">场景</span><input class="v" id="f-scene" placeholder="如 工作·休闲"></div>
+            <div class="field"><span class="k">厚度</span><input class="v" id="f-thick" placeholder="如 中等"></div>
+            <div class="field"><span class="k">价格</span><input class="v" id="f-price" inputmode="decimal" placeholder="¥ 0"></div>
+            <div class="field"><span class="k">颜色</span><input type="color" id="f-color" value="#D8C9A8"><span class="v" id="f-colorhex">#D8C9A8</span></div>
+            <div class="sec-t" style="margin:14px 2px 8px;">标签</div>
+            <div class="tagrow" id="tagRow">
+              <span class="tag" data-t="通勤">通勤</span><span class="tag" data-t="温柔">温柔</span><span class="tag" data-t="百搭">百搭</span>
+              <span class="tag" data-t="正式">正式</span><span class="tag" data-t="大容量">大容量</span><span class="tag" data-t="运动">运动</span>
+            </div>
+            <div class="btn primary block" id="addSave">保存</div>
+            <div class="btn ghost block" id="addBack">返回衣橱</div>
+            <div class="btn ghost block" id="toBatch">或批量录入多件 →</div>
+          </div>
+        </div>
+
+        <!-- 批量录入 -->
+        <div class="panel" id="p-batch">
+          <div class="h-title">批量录入</div>
+          <div class="h-sub">多图上传 · 自动识别分类/颜色/名称 · 可逐项修改</div>
+          <div class="scroll">
+            <div class="capture" id="batchDrop">
+              <input type="file" id="batchInput" accept="image/*" multiple hidden>
+              <span>📥 点击选择多张图片</span>
+              <span style="font-size:10px; opacity:.7;">自动识别分类与颜色，信息不正确可逐项修改</span>
+            </div>
+            <div class="batch-list" id="batchList"></div>
+            <div class="btn primary block" id="batchSave" style="display:none;">全部保存</div>
+            <div class="btn ghost block" id="batchBack">返回</div>
+          </div>
+        </div>
+
+        <!-- ④ 工坊 -->
+        <div class="panel" id="p-studio">
+          <div class="h-title">搭配工坊</div>
+          <div class="h-sub">左右滑动查看 · 点单品可换一件</div>
+          <div class="scroll">
+            <div class="weather" style="margin-bottom:10px;">
+              <svg width="28" height="28" viewBox="0 0 34 34"><circle cx="13" cy="13" r="6" fill="#C9A36A"/><path d="M18 22a6 6 0 0 1 0-12 7 7 0 0 1 7 7 4 4 0 0 1-4 5H18z" fill="#fff" stroke="#9A938A" stroke-width="1.2"/></svg>
+              <div><div class="t" style="font-size:15px;">18° · 工作</div><div class="d">基于天气与活动推荐</div></div>
+              <div class="btn primary" id="studioGen" style="flex:0 0 auto; padding:7px 12px; font-size:11px; margin-left:auto;">智能生成</div>
+            </div>
+            <div class="hint">← 左右滑动切换搭配 · 点单品可替换 →</div>
+            <div class="carousel" id="studioCar"></div>
+            <div class="dots" id="studioDots"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin:2px 2px 10px;">
+              <span style="font-size:12px; color:var(--muted);">当前这套评分</span>
+              <span class="stars">★★★★☆</span>
+            </div>
+            <div class="btn primary block" id="studioSave">保存这套搭配</div>
+          </div>
+        </div>
+
+        <!-- 回收仓 -->
+        <div class="panel" id="p-recycle">
+          <div class="h-title">回收仓</div>
+          <div class="h-sub">已淘汰单品 · 可恢复或彻底删除</div>
+          <div class="scroll">
+            <div class="btn ghost block" id="recycleBack">← 返回衣橱</div>
+            <div class="item-list" id="recycleList"></div>
+            <div class="empty" id="recycleEmpty" style="display:none;">回收仓是空的</div>
+          </div>
+        </div>
+
+        <!-- ⑤ 日历 -->
+        <div class="panel" id="p-cal">
+          <div class="h-title">穿搭日历</div>
+          <div class="h-sub">2026年10月</div>
+          <div class="scroll">
+            <div class="cal-head" style="margin-top:4px;"><span class="m">2026年10月</span><span style="font-size:12px;color:var(--muted);">‹ 本月 ›</span></div>
+            <div class="week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+            <div class="grid" id="calGrid">
+              <div class="day emp"></div><div class="day">1</div><div class="day">2</div><div class="day">3<span class="thumb"></span></div><div class="day">4</div><div class="day">5</div><div class="day">6</div>
+              <div class="day">7</div><div class="day">8<span class="thumb"></span></div><div class="day">9</div><div class="day">10</div><div class="day">11</div><div class="day">12</div><div class="day">13</div>
+              <div class="day">14<span class="thumb"></span></div><div class="day">15</div><div class="day">16</div><div class="day">17</div><div class="day">18</div><div class="day">19</div><div class="day">20</div>
+              <div class="day">21</div><div class="day">22<span class="thumb"></span></div><div class="day">23</div><div class="day">24</div><div class="day">25</div><div class="day">26</div><div class="day">27</div>
+              <div class="day">28</div><div class="day today">29<span class="thumb"></span></div><div class="day">30<span class="wx">☀</span></div><div class="day">31<span class="wx">☁</span></div><div class="day emp"></div><div class="day emp"></div><div class="day emp"></div>
+            </div>
+            <div class="sec-t" style="margin-top:18px;">10月29日 · 已搭配</div>
+            <div class="collage" style="min-height:auto; padding:12px 12px;">
+              <div class="strip" style="margin:4px;"><div class="nm" style="font-size:13px;">米色针织毛衣 · 直筒牛仔裤</div><div class="meta">工作 · 18° 多云转晴</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 换装弹层 -->
+        <div class="sheet-mask" id="swapMask">
+          <div class="sheet">
+            <div class="sheet-h"><span id="swapTitle">换一件</span><span id="swapClose" style="cursor:pointer; padding:0 4px;">✕</span></div>
+            <div class="sheet-list" id="swapList"></div>
+          </div>
+        </div>
+
+        <div class="toast" id="toast">已保存</div>
+
+        <div class="nav">
+          <a data-target="p-home" class="on"><span class="ic">⌂</span>首页</a>
+          <a data-target="p-wardrobe"><span class="ic">▦</span>衣橱</a>
+          <a data-target="p-add" class="add"><span class="ic">+</span></a>
+          <a data-target="p-studio"><span class="ic">✎</span>工坊</a>
+          <a data-target="p-cal"><span class="ic">▤</span>日历</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
