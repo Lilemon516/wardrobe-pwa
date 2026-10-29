@@ -172,3 +172,32 @@ body{background:#F3EEE6; color:var(--ink);
 .swap-item:active{background:rgba(201,163,106,.1);}
 .swap-thumb{width:40px; height:40px; border-radius:9px; flex:0 0 auto; background-size:cover; background-position:center; border:.5px solid var(--line);}
 .swap-name{font-size:13px; color:var(--ink);}
+
+/* ===== 手机 / 全屏(PWA)模式：去掉桌面展示外壳，铺满整屏 ===== */
+@media (max-width: 640px), (display-mode: standalone), (display-mode: fullscreen) {
+  html, body { height: 100%; }
+  body {
+    padding: 0;
+    display: block;
+    background: var(--ivory);
+    overscroll-behavior: none;        /* 禁止整页下拉刷新，更接近 App */
+  }
+  .page-head { display: none; }        /* 手机上不再显示安装说明 */
+  .phone-stage { display: block; }
+  .phone {
+    width: 100%;
+    height: 100vh; height: 100dvh;     /* dvh 适配 Safari 动态工具栏 */
+    border: none; border-radius: 0; box-shadow: none;
+  }
+  .notch, .statusbar { display: none; } /* 隐藏桌面刘海/状态栏 */
+  .screen {
+    height: 100vh; height: 100dvh;
+    padding-top: env(safe-area-inset-top);   /* 避开灵动岛/刘海 */
+  }
+  .nav { padding-bottom: env(safe-area-inset-bottom); } /* 避开底部小条 */
+}
+
+/* 桌面端也提供「添加到主屏幕」后的全屏体验兜底 */
+@media (display-mode: standalone) {
+  .page-head { display: none; }
+}
