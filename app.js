@@ -1,5 +1,26 @@
 // ===== 电子衣橱 PWA 逻辑 + 本地存储 =====
 
+// --- 全局错误捕获（真机排查用：出错时在页面顶部显示红色条）---
+window.addEventListener('error', function (e) {
+  try {
+    var b = document.getElementById('jsErr');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'jsErr';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#B5564B;color:#fff;font-size:11px;padding:8px 12px;line-height:1.5;font-family:system-ui;';
+      (document.body || document.documentElement).appendChild(b);
+    }
+    b.textContent = '⚠ JS 错误：' + (e.message || (e.error && e.error.message) || '未知');
+  } catch (_) {}
+});
+
+// --- 安全存储封装：localStorage 不可用时自动降级，避免顶层崩溃 ---
+const store = {
+  get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+  set: function (k, v) { try { window.localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  parse: function (k, fb) { var s = this.get(k); if (!s) return fb; try { return JSON.parse(s); } catch (e) { return fb; } }
+};
+
 // --- Service Worker 注册（离线/可安装）---
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -31,7 +52,7 @@ async function loadItems() {
       });
     } catch (e) {}
   }
-  return JSON.parse(localStorage.getItem('wcol_items') || '[]');
+  return store.parse('wcol_items', []);
 }
 async function saveItem(it) {
   if (USE_IDB) {
@@ -45,10 +66,10 @@ async function saveItem(it) {
       return;
     } catch (e) {}
   }
-  const arr = JSON.parse(localStorage.getItem('wcol_items') || '[]');
+  const arr = store.parse('wcol_items', []);
   const i = arr.findIndex(x => x.id === it.id);
   if (i >= 0) arr[i] = it; else arr.push(it);
-  localStorage.setItem('wcol_items', JSON.stringify(arr));
+  store.set('wcol_items', JSON.stringify(arr));
 }
 async function deleteItem(id) {
   if (USE_IDB) {
@@ -62,8 +83,8 @@ async function deleteItem(id) {
       return;
     } catch (e) {}
   }
-  const arr = JSON.parse(localStorage.getItem('wcol_items') || '[]').filter(x => x.id !== id);
-  localStorage.setItem('wcol_items', JSON.stringify(arr));
+  const arr = store.parse('wcol_items', []).filter(x => x.id !== id);
+  store.set('wcol_items', JSON.stringify(arr));
 }
 
 // --- 演示种子数据（首次运行填充）---
@@ -174,7 +195,7 @@ const homeSets = [
   { n: ['白色衬衫', '西装外套', '黑色西裤', '黑色乐福鞋'], m: ['上衣 · 春/秋', '外套 · 正式', '下装 · 正式', '鞋 · 通勤'] },
   { n: ['连帽卫衣', '运动裤', '小白鞋', '帆布包'], m: ['上衣 · 休闲', '下装 · 运动', '鞋 · 休闲', '包 · 日常'] }
 ];
-let hi = parseInt(localStorage.getItem('wcol_home') || '0', 10) % homeSets.length;
+let hi = parseInt(store.get('wcol_home') || '0', 10) % homeSets.length;
 function applyHome() {
   const s = homeSets[hi], cols = document.querySelectorAll('#homeCollage .strip');
   cols.forEach((st, k) => {
@@ -184,10 +205,10 @@ function applyHome() {
 }
 applyHome();
 document.getElementById('homeChange').addEventListener('click', () => {
-  hi = (hi + 1) % homeSets.length; applyHome(); localStorage.setItem('wcol_home', String(hi));
+  hi = (hi + 1) % homeSets.length; applyHome(); store.set('wcol_home', String(hi));
 });
 document.getElementById('homeSave').addEventListener('click', () => {
-  localStorage.setItem('wcol_home', String(hi)); toast('已保存到今日穿搭');
+  store.set('wcol_home', String(hi)); toast('已保存到今日穿搭');
 });
 
 // --- 衣橱 → 添加 / 回收仓 ---
@@ -463,7 +484,7 @@ document.getElementById('swapClose').addEventListener('click', closeSwap);
 swapMask.addEventListener('click', e => { if (e.target === swapMask) closeSwap(); });
 
 // --- 日历 选中（持久化）---
-const calSel = new Set(JSON.parse(localStorage.getItem('wcol_cal') || '[]'));
+const calSel = new Set(store.parse('wcol_cal', []));
 function applyCal() {
   document.querySelectorAll('#calGrid .day').forEach(d => {
     if (d.classList.contains('emp')) return;
@@ -476,7 +497,7 @@ document.querySelectorAll('#calGrid .day').forEach(d => {
   d.addEventListener('click', () => {
     const n = d.textContent;
     if (calSel.has(n)) calSel.delete(n); else calSel.add(n);
-    localStorage.setItem('wcol_cal', JSON.stringify([...calSel])); applyCal();
+    store.set('wcol_cal', JSON.stringify([...calSel])); applyCal();
   });
 });
 
