@@ -288,23 +288,81 @@ function toast(msg) {
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 1200);
 }
 
-// --- 首页 换一套 / 保存 ---
-const homeSets = [
-  { n: ['米色针织毛衣', '直筒牛仔裤', '棕色乐福鞋', '大象灰托特包'], m: ['上衣 · 秋/冬 · 工作', '下装 · 百搭', '鞋 · 通勤', '包 · 大容量'] },
-  { n: ['白色衬衫', '西装外套', '黑色西裤', '黑色乐福鞋'], m: ['上衣 · 春/秋', '外套 · 正式', '下装 · 正式', '鞋 · 通勤'] },
-  { n: ['连帽卫衣', '运动裤', '小白鞋', '帆布包'], m: ['上衣 · 休闲', '下装 · 运动', '鞋 · 休闲', '包 · 日常'] }
-];
-let hi = parseInt(store.get('wcol_home') || '0', 10) % homeSets.length;
-function applyHome() {
-  const s = homeSets[hi], cols = document.querySelectorAll('#homeCollage .strip');
-  cols.forEach((st, k) => {
-    st.querySelector('.nm').textContent = s.n[k];
-    st.querySelector('.meta').textContent = s.m[k];
+// --- OOTD 拼贴卡渲染（参考图风格：左模特区 + 右单品竖排 + 红标题红箭头）---
+const CAT_EMOJI = { '上衣':'👚', '下装':'👖', '裙装':'👗', '外套':'🧥', '鞋':'👟', '包':'👜', '配饰':'🧣' };
+const BADGE_POS = {
+  '配饰': { top:'12%', left:'26%' },
+  '外套': { top:'26%', left:'50%' },
+  '上衣': { top:'42%', left:'50%' },
+  '包':   { top:'52%', left:'85%' },
+  '下装': { top:'64%', left:'50%' },
+  '裙装': { top:'64%', left:'50%' },
+  '鞋':   { top:'88%', left:'50%' }
+};
+const SIL_SVG = `<svg class="sil" viewBox="0 0 120 260" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke="#D8CCB8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="60" cy="30" r="15"/><path d="M60 48 C60 60 60 68 60 88"/><path d="M60 54 C48 62 40 74 36 90"/><path d="M60 54 C72 62 80 74 84 90"/><path d="M60 88 L46 150"/><path d="M60 88 L74 150"/><path d="M46 150 L42 188"/><path d="M74 150 L78 188"/></g><ellipse cx="60" cy="198" rx="34" ry="6" fill="#EEE7DA"/></svg>`;
+
+function ootdThumb(it) { return it.img ? `background-image:url(${it.img})` : `background:${it.color || '#ddd'}`; }
+function ootdEmoji(it) { return it.img ? '' : (CAT_EMOJI[it.cat] || '🧷'); }
+
+function renderOotd(container, set, opts) {
+  opts = opts || {};
+  const items = (set && set.items) || [];
+  const model = items.map(it => {
+    const p = BADGE_POS[it.cat] || { top:'50%', left:'50%' };
+    return `<div class="ootd-badge" data-id="${it.id}" style="top:${p.top};left:${p.left};${ootdThumb(it)}">${ootdEmoji(it)}</div>`;
+  }).join('');
+  const list = items.map((it, idx) => `
+    <div class="ootd-item" data-idx="${idx}">
+      <div class="ootd-thumb" style="${ootdThumb(it)}">${ootdEmoji(it)}</div>
+      <span class="arr"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M13 3 Q4 5 3 11 M3 11 L1 8 M3 11 L5 9" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <div class="ootd-label">${it.name}<small>${it.cat}${it.price ? ' · ¥' + it.price : ''}</small></div>
+      ${opts.swap ? `<span class="ootd-swap" data-idx="${idx}">换</span>` : ''}
+    </div>`).join('');
+  container.innerHTML = `
+    <div class="ootd">
+      <div class="ootd-head">
+        <div class="ootd-title">OOTD</div>
+        <div class="ootd-right">
+          ${set && set.title ? `<div class="ootd-style">${set.title}</div>` : ''}
+          ${set && set.reason ? `<div class="ootd-reason">☁ ${currentWx.temp}°${currentWx.text ? ' ' + currentWx.text : ''} · ${set.reason}</div>` : ''}
+        </div>
+      </div>
+      <div class="ootd-body">
+        <div class="ootd-model">${SIL_SVG}${model}</div>
+        <div class="ootd-items">${list}</div>
+      </div>
+    </div>`;
+  const canSwap = opts.swap && opts.slideIndex != null;
+  container.querySelectorAll('.ootd-item').forEach(el => {
+    const idx = +el.dataset.idx;
+    el.onclick = () => openZoom(items[idx], canSwap ? (() => { closeZoom(); openSwap(opts.slideIndex, idx); }) : null);
   });
+  container.querySelectorAll('.ootd-badge').forEach(el => {
+    const it = items.find(x => x.id === el.dataset.id);
+    if (it) el.onclick = () => openZoom(it, canSwap ? (() => { closeZoom(); openSwap(opts.slideIndex, items.indexOf(it)); }) : null);
+  });
+  if (opts.swap) {
+    container.querySelectorAll('.ootd-swap').forEach(el => {
+      const idx = +el.dataset.idx;
+      el.onclick = (e) => { e.stopPropagation(); openSwap(opts.slideIndex, idx); };
+    });
+  }
 }
-applyHome();
+
+// --- 首页 换一套 / 保存 ---
+let hi = parseInt(store.get('wcol_home') || '0', 10) || 0;
+function renderHome() {
+  const box = document.getElementById('homeOotd');
+  const n = studioOutfits.length || 1;
+  const set = studioOutfits[hi % n];
+  if (!set || !set.items || set.items.length === 0) {
+    box.innerHTML = `<div class="ootd"><div class="ootd-head"><div class="ootd-title">OOTD</div></div><div style="font-size:12px;color:var(--muted);text-align:center;padding:24px 0;">暂无单品，请先到衣橱添加</div></div>`;
+    return;
+  }
+  renderOotd(box, set, {});
+}
 document.getElementById('homeChange').addEventListener('click', () => {
-  hi = (hi + 1) % homeSets.length; applyHome(); store.set('wcol_home', String(hi));
+  hi = (hi + 1) % (studioOutfits.length || 1); renderHome(); store.set('wcol_home', String(hi));
 });
 document.getElementById('homeSave').addEventListener('click', () => {
   store.set('wcol_home', String(hi)); toast('已保存到今日穿搭');
@@ -540,30 +598,19 @@ function buildStudio(randomize) {
     }
     studioOutfits.push(set);
   }
-  renderStudio();
+  renderAllOutfits();
 }
+function renderAllOutfits() { renderHome(); renderStudio(); }
 function renderStudio() {
   car.innerHTML = ''; sdots.innerHTML = '';
   if (studioOutfits.length === 0) {
-    car.innerHTML = '<div class="slide"><div class="board"><div class="ot">暂无单品</div><div class="note">请先到衣橱添加上衣/下装或裙装/鞋/包</div></div></div>';
+    car.innerHTML = '<div class="slide"><div class="ootd"><div class="ootd-head"><div class="ootd-title">OOTD</div></div><div style="font-size:12px;color:var(--muted);text-align:center;padding:24px 0;">暂无单品，请先到衣橱添加</div></div></div>';
     return;
   }
   studioOutfits.forEach((set, si) => {
     const slide = document.createElement('div'); slide.className = 'slide';
-    const board = document.createElement('div'); board.className = 'board';
-    const ot = document.createElement('div'); ot.className = 'ot'; ot.textContent = set.title; board.appendChild(ot);
-    if (set.reason) {
-      const rs = document.createElement('div'); rs.className = 'wx-reason';
-      rs.textContent = '☁ ' + currentWx.temp + '°' + (currentWx.text ? ' ' + currentWx.text : '') + ' · ' + set.reason;
-      board.appendChild(rs);
-    }
-    set.items.forEach((it, ii) => {
-      const note = document.createElement('div'); note.className = 'note clickable';
-      note.innerHTML = `<span class="tape"></span>${it.name}<span class="swap-hint">换</span>`;
-      note.onclick = () => openSwap(si, ii);
-      board.appendChild(note);
-    });
-    slide.appendChild(board); car.appendChild(slide);
+    renderOotd(slide, set, { swap: true, slideIndex: si });
+    car.appendChild(slide);
     const dot = document.createElement('span'); dot.className = 'dot' + (si === 0 ? ' on' : '');
     dot.onclick = () => car.scrollTo({ left: si * car.clientWidth, behavior: 'smooth' });
     sdots.appendChild(dot);
@@ -593,7 +640,7 @@ function openSwap(slide, index) {
     row.appendChild(th); row.appendChild(nm);
     row.onclick = () => {
       studioOutfits[slide].items[index] = { ...x, slot: it.slot };
-      renderStudio(); closeSwap(); toast('已替换');
+      renderAllOutfits(); closeSwap(); toast('已替换');
     };
     list.appendChild(row);
   });
@@ -602,6 +649,27 @@ function openSwap(slide, index) {
 function closeSwap() { swapMask.classList.remove('show'); swapCtx = null; }
 document.getElementById('swapClose').addEventListener('click', closeSwap);
 swapMask.addEventListener('click', e => { if (e.target === swapMask) closeSwap(); });
+
+// --- 单品放大查看 ---
+const zoomMask = document.getElementById('zoomMask');
+let zoomSwapCb = null;
+function openZoom(it, swapCb) {
+  zoomSwapCb = swapCb || null;
+  const zi = document.getElementById('zoomImg');
+  zi.style.cssText = it.img ? `background-image:url(${it.img})` : `background:${it.color || '#eee'}`;
+  zi.innerHTML = it.img ? '' : (CAT_EMOJI[it.cat] || '🧷');
+  document.getElementById('zoomName').textContent = it.name || '';
+  document.getElementById('zoomMeta').innerHTML =
+    (it.cat || '') + (it.season ? ' · ' + it.season : '') + (it.scene ? ' · ' + it.scene : '') + (it.thick && it.thick !== '-' ? ' · ' + it.thick : '');
+  document.getElementById('zoomPrice').textContent = fmtPrice(it.price);
+  document.getElementById('zoomSwap').style.display = zoomSwapCb ? '' : 'none';
+  zoomMask.classList.add('show');
+}
+function closeZoom() { zoomMask.classList.remove('show'); zoomSwapCb = null; }
+document.getElementById('zoomClose').addEventListener('click', closeZoom);
+document.getElementById('zoomDone').addEventListener('click', closeZoom);
+document.getElementById('zoomSwap').addEventListener('click', () => { const cb = zoomSwapCb; closeZoom(); if (cb) cb(); });
+zoomMask.addEventListener('click', e => { if (e.target === zoomMask) closeZoom(); });
 
 // --- 日历 选中（持久化）---
 const calSel = new Set(store.parse('wcol_cal', []));

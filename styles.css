@@ -208,3 +208,65 @@ body{background:#F3EEE6; color:var(--ink);
 @media (display-mode: standalone) {
   .page-head { display: none; }
 }
+
+/* ===== OOTD 拼贴卡（参考图风格：左模特区 + 右单品竖排 + 红标题红箭头）===== */
+.ootd{
+  background:#F5F2EB; border:1px solid #EAE2D4; border-radius:18px;
+  padding:14px 14px 16px; position:relative; margin-bottom:6px;
+}
+.ootd-head{display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-bottom:12px;}
+.ootd-title{
+  font-family:"Bradley Hand","Segoe Script","Comic Sans MS","PingFang SC",cursive;
+  font-size:27px; font-weight:700; color:#8B2E2E; line-height:1; letter-spacing:1px;
+  position:relative; padding-bottom:6px;
+}
+.ootd-title::after{content:""; position:absolute; left:-2px; right:-8px; bottom:0; height:5px;
+  border-radius:50%; background:#A63A32; opacity:.82; transform:rotate(-1.2deg);}
+.ootd-style{font-size:13px; color:var(--ink); font-weight:500; text-align:right;}
+.ootd-reason{font-size:10px; color:var(--muted); margin-top:3px; text-align:right; line-height:1.4;}
+
+.ootd-body{display:grid; grid-template-columns:1fr 1.15fr; gap:10px; align-items:stretch;}
+
+/* 左：人形剪影 + 单品 badge */
+.ootd-model{position:relative; min-height:296px; border-radius:14px; overflow:hidden;
+  background:radial-gradient(circle at 50% 32%, #FCFAF5 0%, #EFEAE0 78%);}
+.ootd-model .sil{position:absolute; inset:0; width:100%; height:100%;}
+.ootd-badge{position:absolute; transform:translate(-50%,-50%); width:52px; height:52px;
+  border-radius:14px; background-size:cover; background-position:center;
+  border:2px solid #fff; box-shadow:0 2px 7px rgba(60,50,40,.16); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:22px; z-index:2;}
+.ootd-badge:active{transform:translate(-50%,-50%) scale(.94);}
+
+/* 右：单品竖排 */
+.ootd-items{display:flex; flex-direction:column; gap:9px; justify-content:center;}
+.ootd-item{display:flex; align-items:center; gap:7px; cursor:pointer; position:relative;}
+.ootd-thumb{width:54px; height:54px; border-radius:12px; flex:0 0 auto;
+  background-size:cover; background-position:center; border:1px solid #EAE2D4;
+  display:flex; align-items:center; justify-content:center; font-size:24px;
+  box-shadow:0 1px 3px rgba(0,0,0,.07);}
+.ootd-item .arr{color:#8B2E2E; flex:0 0 auto; display:flex;}
+.ootd-label{font-size:12px; color:#8B2E2E; line-height:1.3; min-width:0;}
+.ootd-label small{display:block; font-size:9px; color:var(--muted); font-weight:400; margin-top:2px;}
+.ootd-swap{position:absolute; right:0; top:50%; transform:translateY(-50%);
+  font-size:9px; color:#fff; background:var(--champagne); border-radius:9px; padding:2px 7px; cursor:pointer;}
+.ootd-swap:active{background:#B9905A;}
+
+/* 放大查看单品 */
+.zoom-mask{position:absolute; inset:0; background:rgba(32,28,24,.66); z-index:40;
+  display:none; align-items:center; justify-content:center; padding:28px 22px;
+  backdrop-filter:blur(2px);}
+.zoom-mask.show{display:flex;}
+.zoom-card{background:#FBF9F4; border-radius:20px; width:100%; max-width:340px;
+  padding:20px 18px; text-align:center; position:relative; max-height:88%;
+  overflow-y:auto; animation:zoomIn .18s ease;}
+@keyframes zoomIn{from{opacity:0; transform:scale(.94);}to{opacity:1; transform:scale(1);}}
+.zoom-close{position:absolute; top:8px; right:12px; font-size:22px; line-height:1;
+  cursor:pointer; color:var(--muted); padding:4px;}
+.zoom-img{width:100%; height:230px; border-radius:14px; background-size:cover;
+  background-position:center; display:flex; align-items:center; justify-content:center;
+  font-size:74px; margin:6px auto 12px; border:1px solid #EAE2D4;}
+.zoom-name{font-size:17px; font-weight:500; color:var(--ink);}
+.zoom-meta{font-size:12px; color:var(--muted); margin-top:4px; line-height:1.7;}
+.zoom-price{font-size:15px; color:#8B2E2E; font-weight:600; margin-top:3px;}
+.zoom-act{margin-top:14px; display:flex; gap:10px;}
+.zoom-act .btn{flex:1;}
